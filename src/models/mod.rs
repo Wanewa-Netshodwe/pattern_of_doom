@@ -1,7 +1,11 @@
-use std::fmt::Display;
+use std::{fmt::Display, io};
 
 use chrono::{DateTime, Local};
+use crossterm::event::{self, KeyEventKind};
+use ratatui::{prelude::CrosstermBackend, widgets::Widget, Frame, Terminal};
 use serde::{Deserialize, Serialize};
+
+use crate::ui::ui;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Modes {
     SinglePlayer,
@@ -92,8 +96,68 @@ pub struct Prompts {
         pub redraw:bool,
         pub mode:Modes,
         pub hint_toggle:bool,
-        pub leaderboard_toggle:bool
+        pub leaderboard_toggle:bool,
+        pub exit:bool,
+        pub user_input:String
 
+    }
+    impl App {
+        pub fn run(&mut self,terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> io::Result<()>{
+              while !self.exit {
+                  terminal.draw(|f|self.draw(f));
+              }
+              Ok(())
+          }
+          fn draw(&mut self, frame: &mut Frame) {
+            self.handle_events();
+            if self.redraw {
+                ui(&self, frame);
+            }
+            ui(&self, frame);
+            
+          }
+          fn handle_events(&mut self) -> io::Result<()> {
+              if event::poll(std::time::Duration::from_millis(100))?{
+                if let event::Event::Key(key) = event::read()?{
+                    if key.kind == KeyEventKind::Press{
+                        match key.code {
+                            event::KeyCode::Char(c)=>{
+                                if self.user_input.len() < 75 {
+                                    self.user_input.push(c); 
+                                } else if self.user_input.len() >= 75 && self.user_input.len() < 95 {
+                                    self.user_input.push_str("(can not exceed 75 )"); 
+                                } else if self.user_input.len() >= 95 {
+                                    self.user_input.truncate(75);
+                                }
+                               
+                            }
+                            event::KeyCode::Backspace=>{
+                                self.user_input.pop();
+                               
+                               
+                            }
+                            _=>()
+                        }
+                    }
+                } 
+    
+              }
+              Ok(())
+          }
+          
+      }
+    
+    impl Default for App {
+        fn default() -> Self {
+            Self{
+                user_input:String::new(),
+                exit:false,
+                mode:Modes::SinglePlayer,
+                hint_toggle:false,
+                leaderboard_toggle:false,
+                redraw:false,
+            }
+        }
     }
     impl Display for UserAccount {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
