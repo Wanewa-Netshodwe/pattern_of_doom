@@ -2,6 +2,7 @@ mod models;
 mod database;
 mod ai;
 mod ui;
+mod signup_login;
 use std::io::{self, stdout};
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
@@ -17,7 +18,10 @@ use ratatui::{
     widgets::{Block, Paragraph, Widget},
     Terminal, Frame,
 };
-fn main() -> io::Result<()> {
+use signup_login::signup_login;
+#[tokio::main]
+async fn main() -> io::Result<()> {
+    signup_login().await;
     enable_raw_mode();
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     let app_result = App::default().run(&mut terminal);

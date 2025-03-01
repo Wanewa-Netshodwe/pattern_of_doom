@@ -1,7 +1,7 @@
 use tokio::sync::Mutex;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use mongodb::Collection;
+use mongodb::{Collection, Database};
 use mongodb::bson::Document;
 
 pub struct Cache {
@@ -15,17 +15,19 @@ impl Cache {
         }
     }
 
-    pub fn set(&mut self, collection: Collection<Document>) {
-        self.collection.insert("collection".to_string(), collection);
+    pub fn set(&mut self, name:String,collection: Collection<Document>) {
+        self.collection.insert(name, collection);
     }
 
     pub fn is_empty(&self) -> bool {
         self.collection.is_empty()
     }
 
-    pub fn get_collection(&self) -> Option<&Collection<Document>> {
-        self.collection.get("collection")
+    pub fn get_collection(&self,name:String) -> Option<&Collection<Document>> {
+        self.collection.get(&name)
     }
 }
 
 pub static GLOBAL_CACHE: Lazy<Mutex<Cache>> = Lazy::new(|| Mutex::new(Cache::new()));
+
+pub static GLOBAL_DATABASE: Lazy<Mutex<Option<Database>>> = Lazy::new(|| Mutex::new(None));

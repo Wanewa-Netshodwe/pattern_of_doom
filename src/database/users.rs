@@ -14,11 +14,13 @@ pub async fn create_user_account(user_details: UserAccount) {
         "incomplete_pattern": to_bson(&user_details.incomplete_pattern),
         "patterns_solved": to_bson(&user_details.patterns_solved),
         "password": &user_details.password,
-       
-
+        "hint":to_bson(&user_details.hint),
+        "battles":to_bson(&user_details.battles),
+        "battles_won":&user_details.battles_won,
+        "points":&user_details.points
     };
     let cache = cache::GLOBAL_CACHE.lock().await;
-    let col = cache.get_collection().unwrap();
+    let col = cache.get_collection("UserAccounts".to_string()).unwrap();
     save_document(&Ok(col), &doc).await;
     
    
@@ -37,7 +39,7 @@ pub async fn update_user_account(user_details: UserAccount) {
    
    let cache = cache::GLOBAL_CACHE.lock().await;
    if !cache.is_empty(){
-    let collection = cache.get_collection();
+    let collection = cache.get_collection("UserAccounts".to_string());
     if let Some(col) =collection{
      let res = col.update_one(filter, update, None).await;
      match res {

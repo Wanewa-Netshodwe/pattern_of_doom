@@ -5,13 +5,19 @@ use std::sync::Mutex;
 pub mod users;
 pub mod cache;
 
-async fn connection() -> Result<(Collection<Document>, Vec<Document>), Error> {
-    let mongodb_uri = "mongodb+srv://wanewa:Wanewa%4012@cluster0.atsji.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+pub async fn connection() -> Result<(Collection<Document>, Vec<Document>), Error> {
+    let mongodb_uri = "mongodb+srv://waneexw:V1zQmtHOLhHonEwO@main.3thc3.mongodb.net/?retryWrites=true&w=majority&appName=main";
     let client_options = ClientOptions::parse(mongodb_uri).await?;
     let client = Client::with_options(client_options)?;
-    let database = client.database("GameStats");
-    let collection = database.collection("GameStats");
-    
+    let database = client.database("Pattern_Of_Doom");
+    let collection = database.collection("Accounts");
+    let mut global_database = cache::GLOBAL_DATABASE.lock().await;
+    if let Some(database) =global_database.clone()  {
+        
+    }else{
+        *global_database = Some(database);
+    }
+    drop(global_database);
     let mut docs: Vec<Document> = Vec::new();
     let mut cursor = collection.find(None, None).await?;
     while let Some(doc) = cursor.try_next().await? {
@@ -20,10 +26,21 @@ async fn connection() -> Result<(Collection<Document>, Vec<Document>), Error> {
     Ok((collection, docs))
 }
 
+pub async fn get_chats() -> Result<Collection<Document>, Error> {
+    let global_database = cache::GLOBAL_DATABASE.lock().await;
+    if let Some(database) = global_database.clone() {
+        let col: Collection<Document> = database.collection("Chat");
+        println!("Database Found");
+        Ok(col)
+    } else {
+        println!("Database not found");
+        Err(Error::custom("Database not found")) 
+    }
+}
 pub async fn get_all_docs() -> Option<Vec<Document>> {
     let cache = cache::GLOBAL_CACHE.lock().await;
    if !cache.is_empty(){
-    let collection = cache.get_collection();
+    let collection = cache.get_collection("UserAccounts".to_string());
     if let Some(col) =collection{
     
         let collection = col;
@@ -54,7 +71,7 @@ pub async fn get_all_docs() -> Option<Vec<Document>> {
 pub async fn get_connection() -> Result<(Collection<Document>, Vec<Document>), Error> {
     let (collection, docs) = connection().await?;
     let mut  cache = cache::GLOBAL_CACHE.lock().await;
-    cache.set(collection.clone());
+    cache.set("UserAccounts".to_string(), collection.clone());
     drop(cache);
     Ok((collection, docs))
 }
