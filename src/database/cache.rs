@@ -1,8 +1,8 @@
-use tokio::sync::Mutex;
+use mongodb::bson::Document;
+use mongodb::{Collection, Database};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use mongodb::{Collection, Database};
-use mongodb::bson::Document;
+use tokio::sync::Mutex;
 
 pub struct Cache {
     pub collection: HashMap<String, Collection<Document>>,
@@ -15,7 +15,7 @@ impl Cache {
         }
     }
 
-    pub fn set(&mut self, name:String,collection: Collection<Document>) {
+    pub fn set(&mut self, name: String, collection: Collection<Document>) {
         self.collection.insert(name, collection);
     }
 
@@ -23,7 +23,7 @@ impl Cache {
         self.collection.is_empty()
     }
 
-    pub fn get_collection(&self,name:String) -> Option<&Collection<Document>> {
+    pub fn get_collection(&self, name: String) -> Option<&Collection<Document>> {
         self.collection.get(&name)
     }
 }
