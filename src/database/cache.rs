@@ -31,3 +31,6 @@ impl Cache {
 pub static GLOBAL_CACHE: Lazy<Mutex<Cache>> = Lazy::new(|| Mutex::new(Cache::new()));
 
 pub static GLOBAL_DATABASE: Lazy<Mutex<Option<Database>>> = Lazy::new(|| Mutex::new(None));
+
+pub const CHATCOLLECTION:&str = "Chat";
+pub const USERCOLLECTION:&str = "UserAccounts";

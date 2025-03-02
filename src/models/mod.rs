@@ -1,11 +1,12 @@
 use std::{fmt::Display, io};
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Utc};
 use crossterm::event::{self, KeyEventKind};
+use mongodb::{bson::{doc, to_bson, Document}, Collection};
 use ratatui::{prelude::CrosstermBackend, widgets::Widget, Frame, Terminal};
 use serde::{Deserialize, Serialize};
 
-use crate::ui::ui;
+use crate::{database::cache, ui::ui};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Modes {
     SinglePlayer,
@@ -69,12 +70,16 @@ pub struct UserAccount {
     pub hint: Hint,
     pub online:bool
 }
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Chat {
+#[derive(Serialize, Deserialize, Clone, Debug,Default)]
+pub struct Message {
     pub sender: String,
-    pub reciever: String,
     pub content: String,
-    pub created_at: String,
+    pub date: String,
+    pub time:String,
+}
+#[derive(Serialize, Deserialize, Clone, Debug,Default)]
+pub struct Chat {
+    pub chats:Vec<Message>
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Battle {
@@ -82,7 +87,7 @@ pub struct Battle {
     pub reciever: UserAccount,
     pub winner: UserAccount,
     pub pattern: Pattern,
-    pub battle_chat: Vec<Chat>,
+    pub battle_chat: Chat,
     pub active: bool,
     pub punishment_pattern: Vec<i32>,
     pub punishment_pattern_term_to_solve: u32,
@@ -107,6 +112,7 @@ pub struct Prompts {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 
 pub struct App {
+    pub chat :Chat,
     pub redraw: bool,
     pub mode: Modes,
     pub user_account:UserAccount,
@@ -114,29 +120,76 @@ pub struct App {
     pub leaderboard_toggle: bool,
     pub exit: bool,
     pub user_input: String,
+    pub scroll_offset: usize,
+    pub scroll_offset_online_users: usize,
 }
 impl App {
-    pub fn run(
+    pub async  fn run(
         &mut self,
         terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+        chat_collection :&Collection<Document>
     ) -> io::Result<()> {
         while !self.exit {
-            terminal.draw(|f| self.draw(f));
+           let _= terminal.draw(|f|{
+                if self.redraw{
+                    ui(&self, f)
+                }
+                ui(&self, f)
+            } );
+            let _=self.handle_events(chat_collection).await;
+            
         }
         Ok(())
     }
-    fn draw(&mut self, frame: &mut Frame) {
-        self.handle_events();
-        if self.redraw {
-            ui(&self, frame);
-        }
-        ui(&self, frame);
-    }
-    fn handle_events(&mut self) -> io::Result<()> {
+   
+   async fn handle_events(&mut self, chat_collection :&Collection<Document>) -> io::Result<()> {
         if event::poll(std::time::Duration::from_millis(100))? {
             if let event::Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
+                        event::KeyCode::Enter=>{
+                            if self.user_input.starts_with("/c"){
+                                let now = Utc::now();
+                                let message = Message{
+                                    content: self.user_input.clone()[3..].to_string(),
+                                    sender: self.user_account.username.clone().trim().to_string(),
+                                    date: now.date_naive().to_string(),
+                                    time: now.time().format("%H:%M:%S").to_string(),
+                                };
+                                if self.chat.chats.is_empty(){
+                                    self.chat.chats.push(message);
+                                    if let Ok(messages_bson) = to_bson(&self.chat.chats) {
+                                        let _ = chat_collection.insert_one(
+                                            doc! {
+                                                "chats": messages_bson,
+                                                "name": "chats"
+                                            },
+                                             None).await;
+                                    }
+                                    self.redraw = true
+                                }else{
+                                    let existing_messages = &mut self.chat.chats;
+                                    existing_messages.push(message);
+                                    if let Ok(messages_bson) = to_bson(existing_messages){
+                                        let _ = chat_collection
+                                                    .update_one(
+                                                        doc! { "name": "chats" },
+                                                        doc! {
+                                                            "$set": {
+                                                                "messages": messages_bson,
+                                                                "name": "chats"
+                                                            }
+                                                        },
+                                                        None,
+                                                    )
+                                                    .await;
+                                    }
+                            }
+                            self.user_input = self.user_input[..3].to_string();
+                            }else{
+
+                            }
+                        }
                         event::KeyCode::Char(c) => {
                             if self.user_input.len() < 75 {
                                 self.user_input.push(c);
@@ -161,6 +214,9 @@ impl App {
 impl Default for App {
     fn default() -> Self {
         Self {
+            scroll_offset:0,
+            scroll_offset_online_users:0,
+            chat:Chat::default(),
             user_account: UserAccount::default(),
             user_input: String::new(),
             exit: false,

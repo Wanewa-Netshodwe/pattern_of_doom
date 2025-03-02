@@ -1,7 +1,10 @@
+use cache::{CHATCOLLECTION, USERCOLLECTION};
 use futures_util::TryStreamExt;
-use mongodb::{bson::Document, error::Error, options::ClientOptions, Client, Collection};
+use mongodb::{bson::{from_bson, Document}, error::Error, options::ClientOptions, Client, Collection};
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
+
+use crate::models::Message;
 pub mod cache;
 pub mod users;
 
@@ -10,11 +13,11 @@ pub async fn connection() -> Result<(Collection<Document>, Vec<Document>), Error
     let client_options = ClientOptions::parse(mongodb_uri).await?;
     let client = Client::with_options(client_options)?;
     let database = client.database("Pattern_Of_Doom");
-    let collection = database.collection("Accounts");
-    let collection_chat: Collection<Document> = database.collection("Chat");
+    let collection = database.collection(USERCOLLECTION);
+    let collection_chat: Collection<Document> = database.collection(CHATCOLLECTION);
 
     let mut cache = cache::GLOBAL_CACHE.lock().await;
-    cache.set("Chat".to_string(), collection_chat);
+    cache.set(CHATCOLLECTION.to_string(), collection_chat);
     drop(cache);
 
     let mut global_database = cache::GLOBAL_DATABASE.lock().await;
@@ -31,12 +34,13 @@ pub async fn connection() -> Result<(Collection<Document>, Vec<Document>), Error
     Ok((collection, docs))
 }
 
-pub async fn get_chats() -> Option<Vec<Document>> {
+pub async fn get_chats() -> Option<Vec<Message>>{
     let cache = cache::GLOBAL_CACHE.lock().await;
     if !cache.is_empty() {
-        let collection = cache.get_collection("Chat".to_string());
+        let collection = cache.get_collection(CHATCOLLECTION.to_string());
         if let Some(col) = collection {
             let mut docs: Vec<Document> = Vec::new();
+
 
             let mut cursor = match col.find(None, None).await {
                 Ok(cursor) => cursor,
@@ -47,10 +51,19 @@ pub async fn get_chats() -> Option<Vec<Document>> {
             };
 
             while let Ok(Some(doc)) = cursor.try_next().await {
-                docs.push(doc);
+                let chat:Vec<Message> = doc.get("chat").unwrap().as_array().unwrap()
+                .iter().filter_map(|item| match from_bson::<Message>(item.clone()) {
+                    Ok(mess)=>{
+                        Some(mess)
+                    }
+                    Err(err)=>{
+                       None
+                    }
+                }).collect();
+               return Some(chat);
             }
 
-            return Some(docs);
+            return None
         } else {
             return None;
         }
@@ -61,7 +74,7 @@ pub async fn get_chats() -> Option<Vec<Document>> {
 pub async fn get_all_docs() -> Option<Vec<Document>> {
     let cache = cache::GLOBAL_CACHE.lock().await;
     if !cache.is_empty() {
-        let collection = cache.get_collection("UserAccounts".to_string());
+        let collection = cache.get_collection(USERCOLLECTION.to_string());
         if let Some(col) = collection {
             let collection = col;
             let mut docs: Vec<Document> = Vec::new();
@@ -91,7 +104,7 @@ pub async fn get_all_docs() -> Option<Vec<Document>> {
 pub async fn get_connection() -> Result<(Collection<Document>, Vec<Document>), Error> {
     let (collection, docs) = connection().await?;
     let mut cache = cache::GLOBAL_CACHE.lock().await;
-    cache.set("UserAccounts".to_string(), collection.clone());
+    cache.set(USERCOLLECTION.to_string(), collection.clone());
     drop(cache);
     Ok((collection, docs))
 }

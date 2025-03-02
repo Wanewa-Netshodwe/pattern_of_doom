@@ -1,9 +1,8 @@
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use crate::models::App;
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
-    style::Style,
-    widgets::{Block, Borders, Paragraph},
-    Frame,
+    layout::{Constraint, Direction, Layout}, style::{Color, Style}, text::{Line, Span}, widgets::{Block, Borders, List, ListItem, Paragraph}, Frame
 };
 pub fn ui(app: &App, frame: &mut Frame) {
     //root Layout
@@ -56,10 +55,62 @@ pub fn ui(app: &App, frame: &mut Frame) {
         .title("Game_menu")
         .borders(Borders::ALL)
         .style(Style::default().fg(ratatui::style::Color::White));
+    // message list
+
+    let messages: Vec<ListItem> = app
+    .chat.chats
+    .iter()
+    .skip(app.scroll_offset)
+    .take(10)
+    .map(|msg| {
+        let spans = Line::from(vec![
+            Span::raw("["),
+            Span::styled(
+                &msg.sender,
+                Style::default().fg(get_random_color_for_username(&msg.sender)),
+            ),
+            Span::raw("#"),
+            Span::raw(&msg.time),
+            Span::raw("]"),
+            Span::raw(&msg.content),
+        ]);
+        return ListItem::new(spans);
+    })
+    .collect();
+let messages_list = List::new(messages)
+        .block(
+            Block::default()
+                .title("Global Chat")
+                .borders(Borders::ALL)
+                .style(Style::default().fg(Color::White)),
+        )
+        .highlight_style(Style::default().fg(Color::Yellow));
+
 
     frame.render_widget(message, root_layout[1]);
-    frame.render_widget(chat, main_section[1]);
+    frame.render_widget(messages_list, main_section[1]);
     frame.render_widget(account_profile, info_area[1]);
     frame.render_widget(game_menu, info_area[0]);
     frame.render_widget(online_users, main_section_right_side[0]);
+}
+fn get_random_color_for_username(username: &str) -> Color {
+    let mut hasher = DefaultHasher::new();
+    username.hash(&mut hasher);
+    let hash = hasher.finish();
+    // List of candidate colors
+    let colors = [
+        Color::Red,
+        Color::Green,
+        Color::Yellow,
+        Color::Blue,
+        Color::Magenta,
+        Color::Cyan,
+        Color::LightRed,
+        Color::LightGreen,
+        Color::LightYellow,
+        Color::LightBlue,
+        Color::LightMagenta,
+        Color::LightCyan,
+    ];
+    colors[(hash as usize) % colors.len()]
 }
