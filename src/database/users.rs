@@ -82,7 +82,7 @@ pub fn find_user(users: &Vec<Document>, username: &String) -> Option<String> {
 }
 pub fn find_logged_in_user(users: &Vec<Document>, username: &String) -> Option<UserAccount> {
     for user in users {
-        let hint = match from_bson::<Hint>(user.get("hints").unwrap().clone()) {
+        let hint = match from_bson::<Hint>(user.get("hint").unwrap().clone()) {
             Ok(data) => data,
             Err(e) => {
                 panic!("error {}", e)
@@ -98,7 +98,7 @@ pub fn find_logged_in_user(users: &Vec<Document>, username: &String) -> Option<U
             .to_string();
         if doc_username.eq(username) {
             let mut user_account = UserAccount {
-                online:user.get("online").unwrap().as_bool().unwrap(),
+                online: user.get("online").unwrap().as_bool().unwrap(),
                 password: formatter("password", user),
                 file_path: formatter("file_path", user),
                 incomplete_pattern: match user.get("incomplete_pattern") {
@@ -113,7 +113,7 @@ pub fn find_logged_in_user(users: &Vec<Document>, username: &String) -> Option<U
                         continue;
                     }
                 },
-                username: formatter("name", user),
+                username: formatter("username", user),
                 rank: formatter("rank", user),
                 battles: user
                     .get("battles")

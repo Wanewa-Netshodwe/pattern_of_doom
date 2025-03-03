@@ -1,15 +1,24 @@
-use cache::{CHATCOLLECTION, USERCOLLECTION};
-use futures_util::TryStreamExt;
-use mongodb::{bson::{from_bson, Document}, error::Error, options::ClientOptions, Client, Collection};
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
-
 use crate::models::Message;
+use cache::{CHATCOLLECTION, USERCOLLECTION};
+use dotenvy::dotenv;
+use futures_util::TryStreamExt;
+use mongodb::{
+    bson::{from_bson, Document},
+    error::Error,
+    options::ClientOptions,
+    Client, Collection,
+};
+use std::env;
 pub mod cache;
 pub mod users;
 
 pub async fn connection() -> Result<(Collection<Document>, Vec<Document>), Error> {
-    let mongodb_uri = "mongodb+srv://waneexw:V1zQmtHOLhHonEwO@main.3thc3.mongodb.net/?retryWrites=true&w=majority&appName=main";
+    dotenv().ok();
+    let database_key = env::var("DATABASE_KEY").expect("Key not found");
+    let mongodb_uri = format!(
+        "mongodb+srv://waneexw:{}@main.3thc3.mongodb.net/?retryWrites=true&w=majority&appName=main",
+        database_key
+    );
     let client_options = ClientOptions::parse(mongodb_uri).await?;
     let client = Client::with_options(client_options)?;
     let database = client.database("Pattern_Of_Doom");
@@ -34,13 +43,12 @@ pub async fn connection() -> Result<(Collection<Document>, Vec<Document>), Error
     Ok((collection, docs))
 }
 
-pub async fn get_chats() -> Option<Vec<Message>>{
+pub async fn get_chats() -> Option<Vec<Message>> {
     let cache = cache::GLOBAL_CACHE.lock().await;
     if !cache.is_empty() {
         let collection = cache.get_collection(CHATCOLLECTION.to_string());
         if let Some(col) = collection {
             let mut docs: Vec<Document> = Vec::new();
-
 
             let mut cursor = match col.find(None, None).await {
                 Ok(cursor) => cursor,
@@ -51,19 +59,21 @@ pub async fn get_chats() -> Option<Vec<Message>>{
             };
 
             while let Ok(Some(doc)) = cursor.try_next().await {
-                let chat:Vec<Message> = doc.get("chat").unwrap().as_array().unwrap()
-                .iter().filter_map(|item| match from_bson::<Message>(item.clone()) {
-                    Ok(mess)=>{
-                        Some(mess)
-                    }
-                    Err(err)=>{
-                       None
-                    }
-                }).collect();
-               return Some(chat);
+                let chat: Vec<Message> = doc
+                    .get("chats")
+                    .unwrap()
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter_map(|item| match from_bson::<Message>(item.clone()) {
+                        Ok(mess) => Some(mess),
+                        Err(err) => None,
+                    })
+                    .collect();
+                return Some(chat);
             }
 
-            return None
+            return None;
         } else {
             return None;
         }

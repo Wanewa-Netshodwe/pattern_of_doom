@@ -7,12 +7,16 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    thread::{self, sleep}, time::Duration,
+    thread::{self, sleep},
+    time::Duration,
 };
 use std::{process, time};
 
 use crate::{
-    database::{self, connection, get_connection, users::{find_logged_in_user, find_user, login}},
+    database::{
+        self, connection, get_connection,
+        users::{find_logged_in_user, find_user, login},
+    },
     models::{Hint, Pattern, UserAccount},
 };
 
@@ -106,9 +110,12 @@ pub async fn signup_login() -> UserAccount {
             sleep(Duration::from_secs(4));
             account_creation.store(true, Ordering::SeqCst);
             spinner_thread_names.join().unwrap();
-            println!("list of usernames in the db {usernames:?}");
+
             let mut choice = String::new();
-            println!("Enter 1 to Login in\nEnter 2 to Creat new Account ");
+            println!("+------------------------+");
+            println!("|  1. Login              |");
+            println!("|  2. Create Account     |");
+            println!("+------------------------+");
             print!("input : ");
             io::stdout().flush().unwrap();
             io::stdin()
@@ -130,16 +137,20 @@ pub async fn signup_login() -> UserAccount {
                         .read_line(&mut password)
                         .expect("Error reading Line");
 
-                    match login(&users, &username, &password){
-                        Err(err)=>{
-                            println!("{}",err)
+                    match login(
+                        &users,
+                        &username.trim().to_string(),
+                        &password.trim().to_string(),
+                    ) {
+                        Err(err) => {
+                            println!("{}", err)
                         }
-                        Ok(valid)=>{
-                            let user_account = find_logged_in_user(&users, &username).unwrap();
+                        Ok(valid) => {
+                            let user_account =
+                                find_logged_in_user(&users, &username.trim().to_string()).unwrap();
                             return user_account;
                         }
                     }
-
                 }
                 2 => {
                     let additional_info = || -> (&Vec<Document>) { (&users) };
@@ -189,7 +200,7 @@ pub async fn signup_login() -> UserAccount {
                             let pat_clone = pat.clone();
 
                             let user = UserAccount {
-                                online:true,
+                                online: true,
                                 points: 0,
                                 battles: vec![],
                                 battles_won: 0,
@@ -228,7 +239,7 @@ pub async fn signup_login() -> UserAccount {
                                     database::users::create_user_account(user.clone()).await;
                                     account_creation.store(true, Ordering::SeqCst);
                                     spinner_thread.join().unwrap();
-                                    return  user;
+                                    return user;
                                 }
                                 Some(username) => {
                                     account_creation.store(true, Ordering::SeqCst);
@@ -242,13 +253,13 @@ pub async fn signup_login() -> UserAccount {
                                         .expect("Error reading Line");
                                     let res = database::users::login(&users, &username, &password2);
                                     match res {
-                                        Err( err)=>{
-                                            println!("{}",err)
+                                        Err(err) => {
+                                            println!("{}", err)
                                         }
-                                        Ok(valid)=>{
-                                            let user_account = find_logged_in_user(&users, &username).unwrap();
+                                        Ok(valid) => {
+                                            let user_account =
+                                                find_logged_in_user(&users, &username).unwrap();
                                             return user_account;
-
                                         }
                                     }
                                 }
